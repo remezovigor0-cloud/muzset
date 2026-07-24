@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ru" dir="ltr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>МузСеть — Вся музыка в одной сети</title>
+  <meta name="description" content="Минималистичный музыкальный агрегатор">
+  <style>
+    /* ═══════════════════════════════════════════
+       1. ДИЗАЙН-СИСТЕМА И ПЕРЕМЕННЫЕ
+       ═══════════════════════════════════════════ */
+    :root {
+      --bg: #FAFAFA;
+      --surface: #FFFFFF;
+      --fg: #111111;
+      --muted: #888888;
+      --line: #E5E5E5;
+      --accent: #111111;
+      --radius: 4px;
+      --transition: 200ms ease-out;
+      --player-height: 90px;
+      --header-height: 70px;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0E0E0E;
+      --surface: #161616;
+      --fg: #F5F5F5;
+      --muted: #888888;
+      --line: #262626;
+      --accent: #F5F5F5;
+    }
+
+    /* Сброс и базовые стили */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html { scroll-behavior: smooth; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--fg);
+      line-height: 1.5;
+      transition: background-color var(--transition), color var(--transition);
+      padding-bottom: calc(var(--player-height) + 20px); /* Место для sticky-плеера */
+    }
+
+    /* Логические свойства для автоматической поддержки RTL */
+    .ms-start { margin-inline-start: auto; }
+    .text-start { text-align: start; }
+
+    a { color: inherit; text-decoration: none; transition: opacity var(--transition); }
+    a:hover { opacity: 0.6; }
+
+    button {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity var(--transition), transform 0.1s;
+    }
+    button:hover { opacity: 0.6; }
+    button:active { transform: scale(0.95); }
+    button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+    input {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--fg);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 14px;
+      transition: border-color var(--transition);
+    }
+    input:focus { outline: none; border-color: var(--fg); }
+
+    /* ═══════════════════════════════════════════
+       2. LAYOUT И КОМПОНЕНТЫ
+       ═══════════════════════════════════════════ */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* HEADER */
+    header {
+      height: var(--header-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 50;
+      transition: background-color var(--transition);
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .logo-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--fg);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .nav-links a.active { color: var(--fg); }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+    }
+    .icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+    select.lang-select {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--fg);
+      padding: 6px 8px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* HERO */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: start;
+    }
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 300;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 500px;
+      margin-bottom: 32px;
+    }
+    .btn-primary {
+      background: var(--fg);
+      color: var(--bg);
+      padding: 12px 28px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    /* SECTIONS */
+    section { padding: 40px 0; border-top: 1px solid var(--line); }
+    .section-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    /* GRID КАРТОЧЕК */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      transition: border-color var(--transition);
+      cursor: pointer;
+      position: relative;
+    }
+    .card:hover { border-color: var(--muted); }
+    .card-img {
+      width: 100%;
+      aspect-ratio: 1;
+      background: var(--line);
+      border-radius: 2px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .card-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+    .card-artist { font-size: 13px; color: var(--muted); }
+    .source-badge {
+      position: absolute;
+      top: 12px;
+      inset-inline-end: 12px; /* RTL-safe */
+      background: var(--bg);
+      border: 1px solid var(--line);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ТАБЛИЦА ПЛЕЙЛИСТА */
+    .playlist-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .playlist-table th {
+      text-align: start;
+      padding: 12px 8px;
+      color: var(--muted);
+      font-weight: 400;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .playlist-table td {
+      padding: 14px 8px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+    .playlist-table tr { cursor: pointer; transition: background var(--transition); }
+    .playlist-table tr:hover { background: var(--surface); }
+    .playlist-table tr.active { background: var(--surface); }
+    .playlist-table tr.active .track-num { color: var(--fg); font-weight: 600; }
+
+    /* STICKY PLAYER */
+    .player-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: var(--player-height);
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 100;
+      transition: background-color var(--transition);
+    }
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      width: 250px;
+      flex-shrink: 0;
+    }
+    .player-cover {
+      width: 48px;
+      height: 48px;
+      background: var(--line);
+      border-radius: 2px;
+    }
+    .player-meta .p-title { font-size: 14px; font-weight: 500; }
+    .player-meta .p-artist { font-size: 12px; color: var(--muted); }
+
+    .player-controls {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .control-buttons { display: flex; align-items: center; gap: 20px; }
+    .control-buttons .icon-btn { width: 32px; height: 32px; }
+    .control-buttons .icon-btn svg { width: 16px; height: 16px; }
+    .control-buttons .play-btn {
+      width: 40px;
+      height: 40px;
+      background: var(--fg);
+      color: var(--bg);
+      border-radius: 50%;
+    }
+    .control-buttons .play-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .control-buttons .play-btn:hover { opacity: 0.85; transform: scale(1.05); }
+
+    .progress-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--line);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--fg);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    .player-extra {
+      width: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 120px;
+    }
+    .volume-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--line);
+      border-radius: 2px;
+      outline: none;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--fg);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    /* VISUALIZER CANVAS */
+    #visualizer {
+      width: 80px;
+      height: 40px;
+      opacity: 0.7;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--line);
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    footer a { margin: 0 12px; }
+
+    /* АДАПТИВНОСТЬ */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .player-info { width: auto; flex: 1; }
+      .player-extra { display: none; } /* Скрываем визуализатор и громкость на мобильных */
+      .player-controls { max-width: 100%; padding: 0 16px; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    
+    /* RTL специфичные корректировки */
+    [dir="rtl"] .header-controls { flex-direction: row-reverse; }
+    [dir="rtl"] .player-info { flex-direction: row-reverse; text-align: right; }
+    [dir="rtl"] .player-extra { justify-content: flex-start; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="container" style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+      <a href="#" class="logo">
+        Муз<span class="logo-dot"></span>Сеть
+      </a>
+      
+      <nav class="nav-links">
+        <a href="#" class="active" data-i18n="nav_home">Главная</a>
+        <a href="#playlist" data-i18n="nav_playlists">Плейлисты</a>
+ is: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    <select class="lang-select" id="langSelect" aria-label="Select Language">
+      <option value="ru">🇷🇺 RU</option>
+      <option value="en">🇬🇧 EN</option>
+      <option value="es">🇪🇸 ES</option>
+      <option value="fr">🇫🇷 FR</option>
+      <option value="de">🇩🇪 DE</option>
+      <option value="zh">🇨🇳 ZH</option>
+      <option value="ja">🇯🇵 JA</option>
+      <option value="ko">🇰🇷 KO</option>
+      <option value="pt">🇵🇹 PT</option>
+      <option value="ar">🇸🇦 AR</option>
+    </select>
+    <button class="icon-btn" id="themeToggle" aria-label="Toggle Theme">
+      <!-- Sun/Moon icon injected by JS -->
+    </button>
+    <input type="search" id="searchInput" data-i18n-placeholder="search_placeholder" placeholder="Поиск трека..." style="width: 180px;">
+  </header>
+
+  <main class="container">
+    <!-- HERO -->
+    <section class="hero" style="border:none; padding-top: 60px;">
+      <h1 data-i18n="hero_title">Вся музыка — <br>в одной сети.</h1>
+      <p data-i18n="hero_desc">Минималистичный агрегатор. Никакого шума — только музыка, ритм и тишина между нотами из ваших любимых сервисов.</p>
+      <button class="btn-primary" onclick="document.getElementById('playlist').scrollIntoView()" data-i18n="cta_listen">Слушать сейчас</button each>
+    </section>
+
+    <!-- POPULAR -->
+    <section>
+      <h2 class="section-title" data-i18n="sec_popular">Популярное сейчас</h2>
+      <div class="grid" id="popularGrid">
+        <!-- Заполняется JS -->
+      </div>
+    </section>
+
+    <!-- SOURCES -->
+    <section>
+      <h2 class="section-title" data-i18n="sec_sources">Источники</h2>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button class="btn-primary" style="background:var(--surface); color:var(--fg); border:1px solid var(--line);">Spotify</button>
+        <button class="btn-primary" style="background:var(--surface); color:var(--fg); border:1px solid var(--line);">YouTube Music</button>
+        <button class="btn-primary" style="background:var(--surface); color:var(--fg); border:1px solid var(--line);">SoundCloud</button>
+        <button class="btn-primary" style="background:var(--surface); color:var(--fg); border:1px solid var(--line);">Apple Music</button>
+        <button class="btn-primary" style="background:var(--fg); color:var(--bg);">Local MP3 (Demo)</button>
+      </div>
+      <p style="margin-top:16px; font-size:13px; color:var(--muted);" data-i18n="sources_note">
+        * Для интеграции реальных API требуется серверная авторизация (OAuth). Сейчас используются демо-треки.
+      </p>
+    </section>
+
+    <!-- PLAYLIST -->
+    <section id="playlist">
+      <h2 class="section-title" data-i18n="sec_playlist">Очередь воспроизведения</h2>
+      <table class="playlist-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th data-i18n="th_title">Название</th>
+            <th data-i18n="th_artist">Исполнитель</th>
+            <th data-i18n="th_source">Источник</th>
+            <th style="width:60px; text-align:end;" data-i18n="th_time">Время</th>
+          </tr>
+        </thead>
+        <tbody id="playlistBody">
+          <!-- Заполняется JS -->
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <p>© 2026 <span data-i18n="brand">МузСеть</span>. <span data-i18n="footer_made">Сделано в тишине</span>.</p>
+      <div style="margin-top:12px;">
+        <a href="#" data-i18n="link_about">О проекте</a>
+        <a href="#" data-i18n="link_api">API</a>
+        <a href="#" data-i18n="link_contact">Контакты</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- STICKY PLAYER -->
+  <div class="player-bar">
+    <div class="player-info">
+      <div class="player-cover" id="playerCover"></div>
+      <div class="player-meta">
+        <div class="p-title" id="playerTitle">—</div>
+        <div class="p-artist" id="playerArtist">—</div>
+      </div>
+    </div>
+
+    <div class="player-controls">
+      <div class="control-buttons">
+        <button class="icon-btn" id="shuffleBtn" aria-label="Shuffle">
+          <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+        </button>
+        <button class="icon-btn" id="prevBtn" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="icon-btn play-btn" id="playBtn" aria-label="Play/Pause">
+          <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="icon-btn" id="nextBtn" aria-label="Next">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+        <button class="icon-btn" id="repeatBtn" aria-label="Repeat">
+          <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+        </button>
+      </div>
+      <div class="progress-container">
+        <span id="currentTime">0:00</span>
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span id="totalTime">0:00</span>
+      </div>
+    </div>
+
+    <div class="player-extra">
+      <canvas id="visualizer" width="160" height="80"></canvas>
+      <div class="volume-control">
+        <button class="icon-btn" id="muteBtn" aria-label="Mute">
+          <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </button>
+        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.7">
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIO ELEMENT (CORS enabled for visualizer) -->
+  <audio id="audioPlayer" crossorigin="anonymous"></audio>
+
+  <script>
+    /* ═══════════════════════════════════════════
+       1. ДАННЫЕ И ПЕРЕВОДЫ
+       ═══════════════════════════════════════════ */
+    const translations = {
+      ru: { nav_home: "Главная", nav_playlists: "Плейлисты", nav_artists: "Исполнители", search_placeholder: "Поиск трека...", hero_title: "Вся музыка —<br>в одной сети.", hero_desc: "Минималистичный агрегатор. Никакого шума — только музыка, ритм и тишина между нотами.", cta_listen: "Слушать сейчас", sec_popular: "Популярное сейчас", sec_sources: "Источники", sources_note: "* Для интеграции реальных API требуется серверная авторизация. Сейчас используются демо-треки.", sec_playlist: "Очередь воспроизведения", th_title: "Название", th_artist: "Исполнитель", th_source: "Источник", th_time: "Время", brand: "МузСеть", footer_made: "Сделано в тишине", link_about: "О проекте", link_api: "API", link_contact: "Контакты" },
+      en: { nav_home: "Home", nav_playlists: "Playlists", nav_artists: "Artists", search_placeholder: "Search track...", hero_title: "All music —<br>in one network.", hero_desc: "Minimalist aggregator. No noise — just music, rhythm, and the silence between notes.", cta_listen: "Listen now", sec_popular: "Popular now", sec_sources: "Sources", sources_note: "* Real API integration requires server-side OAuth. Demo tracks are currently in use.", sec_playlist: "Playback queue", th_title: "Title", th_artist: "Artist", th_source: "Source", th_time: "Time", brand: "MuzSet", footer_made: "Made in silence", link_about: "About", link_api: "API", link_contact: "Contact" },
+      es: { nav_home: "Inicio", nav_playlists: "Listas", nav_artists: "Artistas", search_placeholder: "Buscar pista...", hero_title: "Toda la música —<br>en una red.", hero_desc: "Agregador minimalista. Sin ruido, solo música, ritmo y silencio entre las notas.", cta_listen: "Escuchar ahora", sec_popular: "Popular ahora", sec_sources: "Fuentes", sources_note: "* La integración real de API requiere OAuth. Se usan pistas de demostración.", sec_playlist: "Cola de reproducción", th_title: "Título", th_artist: "Artista", th_source: "Fuente", th_time: "Tiempo", brand: "MuzSet", footer_made: "Hecho en silencio", link_about: "Acerca de", link_api: "API", link_contact: "Contacto" },
+      fr: { nav_home: "Accueil", nav_playlists: "Playlists", nav_artists: "Artistes", search_placeholder: "Rechercher...", hero_title: "Toute la musique —<br>dans un seul réseau.", hero_desc: "Agrégateur minimaliste. Pas de bruit, juste de la musique, du rythme et le silence entre les notes.", cta_listen: "Écouter maintenant", sec_popular: "Populaire", sec_sources: "Sources", sources_note: "* L'intégration réelle de l'API nécessite OAuth. Pistes de démo utilisées.", sec_playlist: "File d'attente", th_title: "Titre", th_artist: "Artiste", th_source: "Source", th_time: "Temps", brand: "MuzSet", footer_made: "Fait dans le silence", link_about: "À propos", link_api: "API", link_contact: "Contact" },
+      de: { nav_home: "Start", nav_playlists: "Playlisten", nav_artists: "Künstler", search_placeholder: "Suchen...", hero_title: "Alle Musik —<br>in einem Netzwerk.", hero_desc: "Minimalistischer Aggregator. Kein Lärm, nur Musik, Rhythmus und die Stille zwischen den Noten.", cta_listen: "Jetzt hören", sec_popular: "Beliebt", sec_sources: "Quellen", sources_note: "* Echte API-Integration erfordert OAuth. Demo-Tracks werden verwendet.", sec_playlist: "Warteschlange", th_title: "Titel", th_artist: "Künstler", th_source: "Quelle", th_time: "Zeit", brand: "MuzSet", footer_made: "In Stille gemacht", link_about: "Über uns", link_api: "API", link_contact: "Kontakt" },
+      zh: { nav_home: "首页", nav_playlists: "播放列表", nav_artists: "艺术家", search_placeholder: "搜索曲目...", hero_title: "所有音乐 —<br>尽在一个网络。", hero_desc: "极简聚合器。没有噪音，只有音乐、节奏和音符间的宁静。", cta_listen: "立即收听", sec_popular: "当前热门", sec_sources: "来源", sources_note: "* 真实的 API 集成需要 OAuth。目前使用演示曲目。", sec_playlist: "播放队列", th_title: "标题", th_artist: "艺术家", th_source: "来源", th_time: "时间", brand: "MuzSet", footer_made: "于宁静中创造", link_about: "关于", link_api: "API", link_contact: "联系" },
+      ja: { nav_home: "ホーム", nav_playlists: "プレイリスト", nav_artists: "アーティスト", search_placeholder: "検索...", hero_title: "すべての音楽が —<br>一つのネットワークに。", hero_desc: "ミニマリストなアグリゲーター。ノイズはなく、音楽、リズム、そして音符の間の静寂のみ。", cta_listen: "今すぐ聴く", sec_popular: "人気の曲", sec_sources: "ソース", sources_note: "* 実際のAPI統合にはOAuthが必要です。デモトラックを使用しています。", sec_playlist: "再生キュー", th_title: "タイトル", th_artist: "アーティスト", th_source: "ソース", th_time: "時間", brand: "MuzSet", footer_made: "静寂の中で作られました", link_about: "について", link_api: "API", link_contact: "お問い合わせ" },
+      ko: { nav_home: "홈", nav_playlists: "재생목록", nav_artists: "아티스트", search_placeholder: "검색...", hero_title: "모든 음악 —<br>하나의 네트워크에서.", hero_desc: "미니멀리스트 애그리게이터. 소음 없이 음악, 리듬, 그리고 음표 사이의 침묵만 있습니다.", cta_listen: "지금 듣기", sec_popular: "인기 음악", sec_sources: "소스", sources_note: "* 실제 API 통합에는 OAuth가 필요합니다. 데모 트랙이 사용 중입니다.", sec_playlist: "재생 대기열", th_title: "제목", th_artist: "아티스트", th_source: "소스", th_time: "시간", brand: "MuzSet", footer_made: "고요 속에서 만들어짐", link_about: "소개", link_api: "API", link_contact: "연락처" },
+      pt: { nav_home: "Início", nav_playlists: "Playlists", nav_artists: "Artistas", search_placeholder: "Pesquisar...", hero_title: "Toda a música —<br>em uma rede.", hero_desc: "Agregador minimalista. Sem ruído, apenas música, ritmo e o silêncio entre as notas.", cta_listen: "Ouvir agora", sec_popular: "Popular agora", sec_sources: "Fontes", sources_note: "* A integração real da API requer OAuth. Faixas de demonstração em uso.", sec_playlist: "Fila de reprodução", th_title: "Título", th_artist: "Artista", th_source: "Fonte", th_time: "Tempo", brand: "MuzSet", footer_made: "Feito em silêncio", link_about: "Sobre", link_api: "API", link_contact: "Contato" },
+      ar: { nav_home: "الرئيسية", nav_playlists: "قوائم التشغيل", nav_artists: "الفنانين", search_placeholder: "بحث...", hero_title: "كل الموسيقى —<br>في شبكة واحدة.", hero_desc: "مجمع موسيقي بسيط. لا ضوضاء، فقط موسيقى وإيقاع وصمت بين النوتات.", cta_listen: "استمع الآن", sec_popular: "الأكثر شعبية", sec_sources: "المصادر", sources_note: "* يتطلب دمج واجهة برمجة التطبيقات الحقيقية مصادقة OAuth. يتم استخدام مسارات تجريبية.", sec_playlist: "قائمة الانتظار", th_title: "العنوان", th_artist: "الفنان", th_source: "المصدر", th_time: "الوقت", brand: "MuzSet", footer_made: "صُنع في هدوء", link_about: "حول", link_api: "API", link_contact: "اتصل" }
+    };
+
+    // Демо-треки (SoundHelix, разрешают CORS для визуализатора)
+    const tracks = [
+      { id: 1, title: "Ambient Sketch", artist: "SoundHelix", source: "Local MP3", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", duration: "6:12" },
+      { id: 2, title: "Quiet Geometry", artist: "SoundHelix", source: "Spotify", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", duration: "7:05" },
+      { id: 3, title: "Paper Moon", artist: "SoundHelix", source: "YouTube", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", duration: "5:44" },
+      { id: 4, title: "Slow Light", artist: "SoundHelix", source: "SoundCloud", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3", duration: "5:02" },
+      { id: 5, title: "Monochrome", artist: "SoundHelix", source: "Apple Music", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", duration: "4:33" }
+    ];
+
+    /* ═══════════════════════════════════════════
+       2. УПРАВЛЕНИЕ СОСТОЯНИЕМ (ТЕМА, ЯЗЫК)
+       ═══════════════════════════════════════════ */
+    const html = document.documentElement;
+    const langSelect = document.getElementById('langSelect');
+    const themeToggle = document.getElementById('themeToggle');
+
+    // Иконки темы
+    const sunIcon = '<svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>';
+    const moonIcon = '<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>';
+
+    function setTheme(theme) {
+      html.setAttribute('data-theme', theme);
+      themeToggle.innerHTML = theme === 'dark' ? sunIcon : moonIcon;
+      localStorage.setItem('muzset_theme', theme);
+    }
+
+    function setLanguage(lang) {
+      html.lang = lang;
+      html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      langSelect.value = lang;
+      
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+          el.innerHTML = translations[lang][key]; // innerHTML для поддержки <br>
+        }
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (translations[lang][key]) el.placeholder = translations[lang][key];
+      });
+      localStorage.setItem('muzset_lang', lang);
+    }
+
+    // Инициализация настроек
+    const savedTheme = localStorage.getItem('muzset_theme') || 'light';
+    const savedLang = localStorage.getItem('muzset_lang') || 'ru';
+    setTheme(savedTheme);
+    setLanguage(savedLang);
+
+    themeToggle.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      setTheme(current === 'light' ? 'dark' : 'light');
+    });
+
+    langSelect.addEventListener('change', (e) => setLanguage(e.target.value));
+
+    /* ═══════════════════════════════════════════
+       3. ЛОГИКА ПЛЕЕРА
+       ═══════════════════════════════════════════ */
+    const audio = document.getElementById('audioPlayer');
+    const playBtn = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const currentTimeEl = document.getElementById('currentTime');
+    const totalTimeEl = document.getElementById('totalTime');
+    const playerTitle = document.getElementById('playerTitle');
+    const playerArtist = document.getElementById('playerArtist');
+    const playlistBody = document.getElementById('playlistBody');
+    const popularGrid = document.getElementById('popularGrid');
+    const volumeSlider = document.getElementById('volumeSlider');
+
+    let currentTrackIndex = 0;
+    let isPlaying = false;
+    let isShuffle = false;
+    let isRepeat = false;
+
+    // Форматирование времени
+    function formatTime(seconds) {
+      if (isNaN(seconds)) return "0:00";
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    // Рендер плейлиста и популярных
+    function renderTracks() {
+      playlistBody.innerHTML = '';
+      popularGrid.innerHTML = '';
+      
+      tracks.forEach((track, index) => {
+        // Таблица
+        const tr = document.createElement('tr');
+        tr.className = index === currentTrackIndex ? 'active' : '';
+        tr.innerHTML = `
+          <td class="track-num">${index + 1}</td>
+          <td>${track.title}</td>
+          <td style="color:var(--muted)">${track.artist}</td>
+          <td><span class="source-badge" style="position:static">${track.source}</span></td>
+          <td style="text-align:end; color:var(--muted)">${track.duration}</td>
+        `;
+        tr.addEventListener('click', () => loadTrack(index));
+        playlistBody.appendChild(tr);
+
+        // Сетка популярных (первые 4 трека)
+        if (index < 4) {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <span class="source-badge">${track.source}</span>
+            <div class="card-img">♪</div>
+            <div class="card-title">${track.title}</div>
+            <div class="card-artist">${track.artist}</div>
+          `;
+          card.addEventListener('click', () => loadTrack(index));
+          popularGrid.appendChild(card);
+        }
+      });
+    }
+
+    function loadTrack(index) {
+      currentTrackIndex = index;
+      const track = tracks[index];
+      audio.src = track.url;
+      playerTitle.textContent = track.title;
+      playerArtist.textContent = track.artist;
+      
+      // Сохранение состояния
+      localStorage.setItem('muzset_last_track', index);
+      
+      renderTracks();
+      if (isPlaying) audio.play();
+    }
+
+    function togglePlay() {
+      if (audio.paused) {
+        audio.play();
+        isPlaying = true;
+        playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+        initVisualizer(); // Запуск визуализатора при первом воспроизведении
+      } else {
+        audio.pause();
+        isPlaying = false;
+        playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      }
+    }
+
+    playBtn.addEventListener('click', togglePlay);
+    
+    nextBtn.addEventListener('click', () => {
+      let next = currentTrackIndex + 1;
+      if (isShuffle) next = Math.floor(Math.random() * tracks.length);
+      if (next >= tracks.length) next = 0;
+      loadTrack(next);
+      audio.play();
+      isPlaying = true;
+      playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    });
+
+    prevBtn.addEventListener('click', () => {
+      let prev = currentTrackIndex - 1;
+      if (prev < 0) prev = tracks.length - 1;
+      loadTrack(prev);
+      audio.play();
+      isPlaying = true;
+      playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    });
+
+    document.getElementById('shuffleBtn').addEventListener('click', function() {
+      isShuffle = !isShuffle;
+      this.style.opacity = isShuffle ? '1' : '0.5';
+    });
+
+    document.getElementById('repeatBtn').addEventListener('click', function() {
+      isRepeat = !isRepeat;
+      this.style.opacity = isRepeat ? '1' : '0.5';
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (audio.duration) {
+        const pct = (audio.currentTime / audio.duration) * 100;
+        progressFill.style.width = `${pct}%`;
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+        totalTimeEl.textContent = formatTime(audio.duration);
+      }
+    });
+
+    audio.addEventListener('ended', () => {
+      if (isRepeat) {
+        audio.currentTime = 0;
+        audio.play();
+      } else {
+        nextBtn.click();
+      }
+    });
+
+    progressBar.addEventListener('click', (e) => {
+      const rect = progressBar.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      if (audio.duration) audio.currentTime = pct * audio.duration;
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+      audio.volume = e.target.value;
+    });
+
+    // Поиск (фильтрация на клиенте для демо)
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase();
+      const rows = playlistBody.querySelectorAll('tr');
+      rows.forEach((row, idx) => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(val) ? '' : 'none';
+      });
+    });
+
+    /* ═══════════════════════════════════════════
+       4. ВИЗУАЛИЗАТОР (Web Audio API)
+       ═══════════════════════════════════════════ */
+    let audioCtx, analyser, source, dataArray;
+    let visualizerInitialized = false;
+
+    function initVisualizer() {
+      if (visualizerInitialized) return;
+      
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64; // Меньше полос для минималистичного вида
+        
+        // Важно: для работы с внешними URL нужен CORS, который мы указали в <audio>
+        source = audioCtx.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        visualizerInitialized = true;
+        drawVisualizer();
+      } catch (e) {
+        console.warn("Visualizer init failed (CORS or API restriction):", e);
+      }
+    }
+
+    function drawVisualizer() {
+      requestAnimationFrame(drawVisualizer);
+      if (!analyser) return;
+
+      analyser.getByteFrequencyData(dataArray);
+      const canvas = document.getElementById('visualizer');
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+      
+      // Цвет в зависимости от темы
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      ctx.fillStyle = isDark ? '#F5F5F5' : '#111111';
+
+      const barWidth = width / dataArray.length;
+      const centerY = height / 2;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 255;
+        const barHeight = v * centerY * 0.9;
+        // Рисуем симметрично от центра для минималистичного эффекта
+        ctx.fillRect(i * barWidth, centerY - barHeight, barWidth * 0.6, barHeight * 2);
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       5. ИНИЦИАЛИЗАЦИЯ
+       ═══════════════════════════════════════════ */
+    audio.volume = 0.7;
+    renderTracks();
+    
+    // Восстановление последнего трека
+    const lastTrack = localStorage.getItem('muzset_last_track');
+    if (lastTrack !== null) {
+      loadTrack(parseInt(lastTrack));
+    } else {
+      loadTrack(0);
+    }
+
+    // Обработка изменения темы для перерисовки визуализатора
+    themeToggle.addEventListener('click', () => {
+      if (visualizerInitialized) drawVisualizer();
+    });
+  </script>
+</body>
+</html>
